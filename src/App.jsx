@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { SOSProvider } from './context/SOSContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import MobileNav from './components/MobileNav';
 import AuthModal from './components/AuthModal';
 import AISafetyBot from './components/AISafetyBot';
 import HomePage from './pages/HomePage';
@@ -37,7 +38,7 @@ function AppContent() {
     <SOSProvider>
       <div className="min-h-screen" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
         <Navbar />
-        <main>
+        <main className="pb-20 md:pb-0">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/sos" element={<SOSPage />} />
@@ -49,6 +50,7 @@ function AppContent() {
           </Routes>
         </main>
         <Footer />
+        <MobileNav />
         <AuthModal />
         <AISafetyBot />
       </div>
