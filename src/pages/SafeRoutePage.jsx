@@ -5,7 +5,6 @@ import { safetyTips } from '../data/safeRoutes';
 import AreaRiskAnalyzer from '../components/AreaRiskAnalyzer';
 import LocationMap from '../components/LocationMap';
 import { useSOS } from '../context/SOSContext';
-import { fetchNearbySafePlaces } from '../services/nearbyPlacesService';
 
 const RISK_CONFIG = {
     low: { label: 'Safe Route', color: '#27AE60', bg: 'rgba(39,174,96,0.1)', border: 'rgba(39,174,96,0.25)', icon: CheckCircle },
@@ -14,31 +13,18 @@ const RISK_CONFIG = {
 };
 
 export default function SafeRoutePage() {
-    const { location } = useSOS();
-    const [routes, setRoutes] = useState([]);
-    const [nearbyMarkers, setNearbyMarkers] = useState([]);
+    const { location, nearbyPlaces, placesLoading } = useSOS();
     const [selectedRoute, setSelectedRoute] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
 
-    // Fetch nearby safe places when location is available
+    const routes = nearbyPlaces?.routes || [];
+    const nearbyMarkers = nearbyPlaces?.nearbyMarkers || [];
+    const loading = placesLoading;
+    const error = !loading && routes.length === 0 ? 'No safe places found nearby yet.' : '';
+
+    // Auto-select first route when data arrives
     useEffect(() => {
-        if (!location?.lat || !location?.lng) return;
-        setLoading(true);
-        setError('');
-        fetchNearbySafePlaces(location.lat, location.lng, location.city)
-            .then(({ routes: r, nearbyMarkers: m }) => {
-                setRoutes(r);
-                setNearbyMarkers(m);
-                if (r.length > 0) setSelectedRoute(r[0]);
-                else setError('No safe places found nearby. Try a different area.');
-                setLoading(false);
-            })
-            .catch(() => {
-                setError('Could not fetch nearby places. Check your connection.');
-                setLoading(false);
-            });
-    }, [location?.lat, location?.lng, location?.city]);
+        if (routes.length > 0 && !selectedRoute) setSelectedRoute(routes[0]);
+    }, [routes, selectedRoute]);
 
     const cfg = selectedRoute ? RISK_CONFIG[selectedRoute.risk] : RISK_CONFIG.low;
 

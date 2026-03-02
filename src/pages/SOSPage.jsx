@@ -4,7 +4,6 @@ import { Phone, MapPin, Users, Shield, AlertTriangle, CheckCircle, Clock, X } fr
 import { useSOS } from '../context/SOSContext';
 import { helplines } from '../data/helplines';
 import LocationMap from '../components/LocationMap';
-import { fetchNearbySafePlaces } from '../services/nearbyPlacesService';
 
 const LOG_COLORS = {
     sos: '#E74C3C', location: '#F39C12', contact: '#9B59B6',
@@ -12,28 +11,19 @@ const LOG_COLORS = {
 };
 
 export default function SOSPage() {
-    const { sosActive, alertLog, holdProgress, startHold, cancelHold, deactivateSOS, contacts, location } = useSOS();
+    const { sosActive, alertLog, holdProgress, startHold, cancelHold, deactivateSOS, contacts, location, nearbyPlaces } = useSOS();
     const [showDeactivate, setShowDeactivate] = useState(false);
-    const [nearbyMarkers, setNearbyMarkers] = useState([]);
 
-    // Fetch nearby hospitals & police stations for map markers
-    useEffect(() => {
-        if (!location?.lat || !location?.lng) return;
-        fetchNearbySafePlaces(location.lat, location.lng, location.city)
-            .then(({ places }) => {
-                const markers = (places || [])
-                    .filter(p => p.type === 'police' || p.type === 'hospital')
-                    .slice(0, 10)
-                    .map(p => ({
-                        lat: p.lat,
-                        lng: p.lng,
-                        label: `${p.icon} ${p.name} (${p.distanceText})`,
-                        color: p.type === 'police' ? '#3498DB' : '#27AE60',
-                    }));
-                setNearbyMarkers(markers);
-            })
-            .catch(() => { });
-    }, [location?.lat, location?.lng, location?.city]);
+    // Use nearby markers from centralized context (hospitals & police only)
+    const nearbyMarkers = (nearbyPlaces?.places || [])
+        .filter(p => p.type === 'police' || p.type === 'hospital')
+        .slice(0, 10)
+        .map(p => ({
+            lat: p.lat,
+            lng: p.lng,
+            label: `${p.icon} ${p.name} (${p.distanceText})`,
+            color: p.type === 'police' ? '#3498DB' : '#27AE60',
+        }));
 
     useEffect(() => { if (sosActive) setShowDeactivate(true); }, [sosActive]);
 

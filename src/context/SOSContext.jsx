@@ -3,6 +3,7 @@ import { collection, addDoc, getDocs, query, where, orderBy } from 'firebase/fir
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { sendSMSLink, sendEmailAlerts } from '../services/sosAlertService';
+import { fetchNearbySafePlaces } from '../services/nearbyPlacesService';
 
 const SOSContext = createContext(null);
 
@@ -20,9 +21,12 @@ export function SOSProvider({ children }) {
     const [location, setLocation] = useState({ lat: 28.6139, lng: 77.2090, city: 'New Delhi' });
     const [holdProgress, setHoldProgress] = useState(0);
     const [contacts, setContacts] = useState(MOCK_CONTACTS);
+    const [nearbyPlaces, setNearbyPlaces] = useState({ routes: [], nearbyMarkers: [], places: [] });
+    const [placesLoading, setPlacesLoading] = useState(false);
     const holdTimer = useRef(null);
     const countdownTimer = useRef(null);
     const holdInterval = useRef(null);
+    const locationFetched = useRef(false);
 
     // Load emergency contacts from Firestore when user is logged in
     useEffect(() => {
@@ -46,9 +50,10 @@ export function SOSProvider({ children }) {
         loadContacts();
     }, [user?.uid]);
 
-    // Fetch GPS location on mount
+    // Fetch GPS location on mount (once)
     useEffect(() => {
-        if (!navigator.geolocation) return;
+        if (locationFetched.current || !navigator.geolocation) return;
+        locationFetched.current = true;
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
                 const lat = pos.coords.latitude;
@@ -62,11 +67,18 @@ export function SOSProvider({ children }) {
                     console.warn('Reverse geocode failed:', e);
                 }
                 setLocation({ lat, lng, city });
+
+                // Fetch nearby places once after getting location
+                setPlacesLoading(true);
+                fetchNearbySafePlaces(lat, lng, city)
+                    .then(data => setNearbyPlaces(data))
+                    .catch(() => { })
+                    .finally(() => setPlacesLoading(false));
             },
             (err) => {
                 console.warn('Geolocation permission denied or unavailable:', err);
             },
-            { enableHighAccuracy: true, timeout: 10000 },
+            { enableHighAccuracy: true, timeout: 8000 },
         );
     }, []);
 
@@ -183,6 +195,7 @@ export function SOSProvider({ children }) {
             sosActive, countdown, alertLog, location, holdProgress,
             activateSOS, deactivateSOS, startHold, cancelHold,
             contacts, setContacts, addLog,
+            nearbyPlaces, placesLoading,
         }}>
             {children}
         </SOSContext.Provider>
