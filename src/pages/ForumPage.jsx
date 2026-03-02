@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Heart, MessageCircle, Search, Filter, Flag, Plus, ThumbsUp, X } from 'lucide-react';
 import { collection, addDoc, updateDoc, doc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { categories } from '../data/forumPosts';
+import { categories, forumPosts as MOCK_POSTS } from '../data/forumPosts';
 
 export default function ForumPage() {
     const { user, openAuth } = useAuth();
@@ -16,11 +16,38 @@ export default function ForumPage() {
     const [showNewPost, setShowNewPost] = useState(false);
     const [newPost, setNewPost] = useState({ title: '', content: '', category: 'tips', tags: '' });
     const [submitting, setSubmitting] = useState(false);
+    const seeded = useRef(false);
 
-    // Real-time Firestore listener for forum posts
+    // Real-time Firestore listener + auto-seed if empty
     useEffect(() => {
         const q = query(collection(db, 'forumPosts'), orderBy('createdAt', 'desc'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, async (snapshot) => {
+            // Auto-seed mock data if Firestore collection is empty
+            if (snapshot.empty && !seeded.current) {
+                seeded.current = true;
+                for (const post of MOCK_POSTS) {
+                    try {
+                        await addDoc(collection(db, 'forumPosts'), {
+                            author: post.author,
+                            avatar: post.avatar,
+                            avatarColor: post.avatarColor,
+                            title: post.title,
+                            content: post.content,
+                            category: post.category,
+                            likes: post.likes,
+                            comments: post.comments,
+                            tags: post.tags,
+                            verified: post.verified,
+                            location: post.location,
+                            createdAt: serverTimestamp(),
+                        });
+                    } catch (e) {
+                        console.warn('Seed error:', e);
+                    }
+                }
+                return; // onSnapshot will fire again with seeded data
+            }
+
             const firestorePosts = snapshot.docs.map(d => {
                 const data = d.data();
                 return {
