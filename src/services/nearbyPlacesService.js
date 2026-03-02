@@ -2,9 +2,17 @@
  * Nearby Places Service
  * Uses the Overpass API (free, no key) to find nearby safe places
  * like police stations, hospitals, pharmacies, and transit stops.
+ * Results are cached for 5 minutes to avoid slow duplicate API calls.
  */
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+// Cache: store results by rounded lat/lng for 5 minutes
+const cache = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+function getCacheKey(lat, lng) {
+    return `${lat.toFixed(3)},${lng.toFixed(3)}`;
+}
 
 // Categories of safe places to search for
 const PLACE_QUERIES = [
@@ -79,6 +87,12 @@ function riskFromScore(score) {
  * @returns {Promise<{routes: Array, nearbyPlaces: Array}>}
  */
 export async function fetchNearbySafePlaces(lat, lng, cityName = 'Your Area') {
+    // Check cache first
+    const key = getCacheKey(lat, lng);
+    if (cache[key] && Date.now() - cache[key].time < CACHE_TTL) {
+        return cache[key].data;
+    }
+
     try {
         const query = buildOverpassQuery(lat, lng, 2500);
         const res = await fetch(OVERPASS_URL, {
@@ -150,7 +164,10 @@ export async function fetchNearbySafePlaces(lat, lng, cityName = 'Your Area') {
             color: p.risk === 'low' ? '#27AE60' : p.risk === 'medium' ? '#F39C12' : '#E74C3C',
         }));
 
-        return { routes, nearbyMarkers, places };
+        const result = { routes, nearbyMarkers, places };
+        // Store in cache
+        cache[key] = { data: result, time: Date.now() };
+        return result;
     } catch (err) {
         console.warn('Could not fetch nearby places:', err);
         return { routes: [], nearbyMarkers: [], places: [] };
